@@ -79,7 +79,7 @@ namespace Fit.Parser.Tests {
         [TestMethod]
         public void FitParser1() {
             FitParserFromStream parser = new FitParserFromStream();
-            var obj = parser.Header(File.OpenRead(@"c:\git\fit\Fit.Parser.Tests\other.fit"));
+            var obj = parser.Header(File.OpenRead(@"c:\git\fit\Fit.Parser.Tests\sample.fit"));
             Assert.IsNotNull(obj);
         }
     }

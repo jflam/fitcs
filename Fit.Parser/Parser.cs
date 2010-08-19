@@ -80,22 +80,16 @@ namespace Fit.Parser {
     // Contains a few parsers that parse bytes from an input stream
     public abstract class ByteParsers<TInput> : Parsers<TInput> {
         public abstract Parser<TInput, byte> AnyByte { get; }
+        public abstract Parser<TInput, long> AnyLong { get; }
+
         public Parser<TInput, byte> Byte(byte bb) {
             return from b in AnyByte where b == bb select b;
         }
         public Parser<TInput, byte> Byte(Predicate<byte> pred) {
             return from b in AnyByte where pred(b) select b;
         }
-        public Parser<TInput, byte[]> Long() {
-            return from b1 in AnyByte
-                   from b2 in AnyByte
-                   from b3 in AnyByte
-                   from b4 in AnyByte
-                   from b5 in AnyByte
-                   from b6 in AnyByte
-                   from b7 in AnyByte
-                   from b8 in AnyByte
-                   select new byte[] { b1, b2, b3, b4, b5, b6, b7, b8 };
+        public Parser<TInput, long> Long() {
+            return from b in AnyLong select b;
         }
         public Parser<TInput, byte> Byte() {
             return from b in AnyByte select b;
@@ -103,9 +97,9 @@ namespace Fit.Parser {
     }
 
     public class Header {
-        public readonly byte[] Stamp;
+        public readonly long Stamp;
         public readonly byte[] Sig;
-        public Header(byte[] stamp, byte[] sig) {
+        public Header(long stamp, byte[] sig) {
             Stamp = stamp;
             Sig = sig;
         }
@@ -121,13 +115,26 @@ namespace Fit.Parser {
         }
 
         public Parser<TInput, Header> Header;
-        public Parser<TInput, byte[]> Bytes1;
+        public Parser<TInput, long> Bytes1;
         public Parser<TInput, byte> Sig;
     }
 
     public class FitParserFromStream : FitParser<Stream> {
         public override Parser<Stream, byte> AnyByte {
-            get { { return input => input.Position <= input.Length ? new Result<Stream, byte>((byte)input.ReadByte(), input) : null; } }
+            get { return input => input.Position <= input.Length ? new Result<Stream, byte>((byte)input.ReadByte(), input) : null; }
+        }
+        public override Parser<Stream, long> AnyLong {
+            get {
+                return (input) => {
+                    if (input.Length - input.Position >= 8) {
+                        byte[] result = new byte[8];
+                        input.Read(result, 0, 8);
+                        return new Result<Stream, long>(BitConverter.ToInt64(result, 0), input);
+                    } else {
+                        return null;
+                    }
+                };
+            }
         }
     }
 
