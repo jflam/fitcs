@@ -21,7 +21,7 @@ namespace Fit.Parser {
             return input => parser1(input) ?? parser2(input);
         }
         public static Parser<TInput, TValue2> AND<TInput, TValue1, TValue2>(this Parser<TInput, TValue1> parser1, Parser<TInput, TValue2> parser2) {
-            return input => parser2(parser1(input).Rest);
+            return input => { var p1 = parser1(input); return p1 != null ? parser2(p1.Rest) : null; };
         }
     }
 
