@@ -1,8 +1,6 @@
 ﻿using System;
 using System.IO;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace Fit.Parser {
 
@@ -70,16 +68,20 @@ namespace Fit.Parser {
         }
     }
 
+    #region CharParsers
     // Contains a few parsers that parse characters from an input stream
     public abstract class CharParsers<TInput> : Parsers<TInput> {
         public abstract Parser<TInput, char> AnyChar { get; }
         public Parser<TInput, char> Char(char ch) { return from c in AnyChar where c == ch select c; }
         public Parser<TInput, char> Char(Predicate<char> pred) { return from c in AnyChar where pred(c) select c; }
     }
+    #endregion
 
     // Contains a few parsers that parse bytes from an input stream
-    public abstract class ByteParsers<TInput> : Parsers<TInput> {
+    public abstract class BinaryParsers<TInput> : Parsers<TInput> {
         public abstract Parser<TInput, byte> AnyByte { get; }
+        public abstract Parser<TInput, short> AnyShort { get; }
+        public abstract Parser<TInput, int> AnyInt { get; }
         public abstract Parser<TInput, long> AnyLong { get; }
 
         public Parser<TInput, byte> Byte(byte bb) {
@@ -97,21 +99,31 @@ namespace Fit.Parser {
     }
 
     public class Header {
-        public readonly long Stamp;
+        public readonly byte Length;
+        public readonly byte ProtocolVersion;
+        public readonly short ProfileVersion;
+        public readonly int DataSize;
         public readonly byte[] Sig;
-        public Header(long stamp, byte[] sig) {
-            Stamp = stamp;
+        public Header(byte length, byte protocolVersion, short profileVersion, int dataSize, byte[] sig) {
+            Length = length;
+            ProtocolVersion = protocolVersion;
+            ProfileVersion = profileVersion;
+            DataSize = dataSize;
             Sig = sig;
         }
     }
 
-    public abstract class FitParser<TInput> : ByteParsers<TInput> {
+    public abstract class FitParser<TInput> : BinaryParsers<TInput> {
         public FitParser() {
             Bytes1 = Long();
             Sig = Byte(0x2e).AND(Byte(0x46)).AND(Byte(0x49)).AND(Byte(0x54));
-            Header = from b in Bytes1
-                     from s in Sig
-                     select new Header(b, new byte[] { 0x2e, 0x46, 0x49, 0x54 });
+            Header = from length in AnyByte
+                     from protocolVerison in AnyByte
+                     from profileVersion in AnyShort
+                     from dataSize in AnyInt
+                     from sig in Sig
+                     select new Header(length, protocolVerison, profileVersion, dataSize,
+                                       new byte[] { 0x2e, 0x46, 0x49, 0x54 });
         }
 
         public Parser<TInput, Header> Header;
@@ -123,6 +135,35 @@ namespace Fit.Parser {
         public override Parser<Stream, byte> AnyByte {
             get { return input => input.Position <= input.Length ? new Result<Stream, byte>((byte)input.ReadByte(), input) : null; }
         }
+
+        public override Parser<Stream, short> AnyShort {
+            get {
+                return (input) => {
+                    if (input.Length - input.Position >= 2) {
+                        byte[] result = new byte[2];
+                        input.Read(result, 0, 2);
+                        return new Result<Stream, short>(BitConverter.ToInt16(result, 0), input);
+                    } else {
+                        return null;
+                    }
+                };
+            }
+        }
+
+        public override Parser<Stream, int> AnyInt {
+            get { 
+                return (input) => {
+                    if (input.Length - input.Position >= 4) {
+                        byte[] result = new byte[4];
+                        input.Read(result, 0, 4);
+                        return new Result<Stream, int>(BitConverter.ToInt32(result, 0), input);
+                    } else {
+                        return null;
+                    }
+                };
+            }
+        }
+
         public override Parser<Stream, long> AnyLong {
             get {
                 return (input) => {
@@ -138,29 +179,30 @@ namespace Fit.Parser {
         }
     }
 
+    #region SimpleML
     // The Term class and its derived classes define the AST for terms in the MiniML langauge.
     public abstract class Term { }
-    public class LambdaTerm : Term { 
-        public readonly string Ident; 
-        public readonly Term Term; 
-        public LambdaTerm(string i, Term t) { Ident = i; Term = t; } 
+    public class LambdaTerm : Term {
+        public readonly string Ident;
+        public readonly Term Term;
+        public LambdaTerm(string i, Term t) { Ident = i; Term = t; }
     }
 
-    public class LetTerm : Term { 
-        public readonly string Ident; 
-        public readonly Term Rhs; 
-        public Term Body; 
+    public class LetTerm : Term {
+        public readonly string Ident;
+        public readonly Term Rhs;
+        public Term Body;
         public LetTerm(string i, Term r, Term b) { Ident = i; Rhs = r; Body = b; }
     }
 
-    public class AppTerm : Term { 
-        public readonly Term Func; 
-        public readonly Term[] Args; 
-        public AppTerm(Term func, Term[] args) { Func = func; Args = args; } 
+    public class AppTerm : Term {
+        public readonly Term Func;
+        public readonly Term[] Args;
+        public AppTerm(Term func, Term[] args) { Func = func; Args = args; }
     }
 
-    public class VarTerm : Term { 
-        public readonly string Ident; 
+    public class VarTerm : Term {
+        public readonly string Ident;
         public VarTerm(string ident) { Ident = ident; }
     }
 
@@ -225,4 +267,5 @@ namespace Fit.Parser {
             get { { return input => input.Length > 0 ? new Result<Stream, char>((char)input.ReadByte(), input) : null; } }
         }
     }
+    #endregion
 }

@@ -1,9 +1,7 @@
 ﻿using System;
-using System.Text;
-using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System.IO;
 
 namespace Fit.Parser.Tests {
     [TestClass]
@@ -81,6 +79,10 @@ namespace Fit.Parser.Tests {
             FitParserFromStream parser = new FitParserFromStream();
             var obj = parser.Header(File.OpenRead(@"c:\git\fit\Fit.Parser.Tests\sample.fit"));
             Assert.IsNotNull(obj);
+            Header header = obj.Value;
+            Assert.AreEqual(header.Length, 12);
+            Assert.AreEqual(header.ProtocolVersion, 0x10);
+            Assert.AreEqual(header.ProfileVersion, 0x40);
         }
     }
 }
