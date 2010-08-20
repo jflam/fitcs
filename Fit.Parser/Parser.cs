@@ -98,13 +98,13 @@ namespace Fit.Parser {
         }
     }
 
-    public class Header {
+    public class FileHeader {
         public readonly byte Length;
         public readonly byte ProtocolVersion;
         public readonly short ProfileVersion;
         public readonly int DataSize;
         public readonly byte[] Sig;
-        public Header(byte length, byte protocolVersion, short profileVersion, int dataSize, byte[] sig) {
+        public FileHeader(byte length, byte protocolVersion, short profileVersion, int dataSize, byte[] sig) {
             Length = length;
             ProtocolVersion = protocolVersion;
             ProfileVersion = profileVersion;
@@ -113,21 +113,55 @@ namespace Fit.Parser {
         }
     }
 
+    public class FitFile {
+        public readonly FileHeader FileHeader;
+        public readonly byte[] Records;
+        public FitFile(FileHeader fileHeader, byte[] records) {
+            FileHeader = fileHeader;
+            Records = records;
+        }
+    }
+
+    public class DefinitionMessage {
+
+    }
+
+    public class DataMessage {
+
+    }
+
     public abstract class FitParser<TInput> : BinaryParsers<TInput> {
         public FitParser() {
-            Bytes1 = Long();
             Sig = Byte(0x2e).AND(Byte(0x46)).AND(Byte(0x49)).AND(Byte(0x54));
             Header = from length in AnyByte
                      from protocolVerison in AnyByte
                      from profileVersion in AnyShort
                      from dataSize in AnyInt
                      from sig in Sig
-                     select new Header(length, protocolVerison, profileVersion, dataSize,
+                     select new FileHeader(length, protocolVerison, profileVersion, dataSize,
                                        new byte[] { 0x2e, 0x46, 0x49, 0x54 });
+
+            DefinitionHeader = from recordHeader in AnyByte
+                               where ((int)recordHeader & 0x40) != 0
+                               select recordHeader;
+
+            //DataHeader = from recordHeader in AnyByte
+                         //where ((int)recordHeader & 0x40) == 0
+                         //select recordHeader;
+
+            //Records = Rep(DefinitionHeader.OR(DataHeader));
+            Records = Rep(DefinitionHeader);
+
+            FitFile = from header in Header
+                      from records in Records
+                      select new FitFile(header, records);
         }
 
-        public Parser<TInput, Header> Header;
-        public Parser<TInput, long> Bytes1;
+        public Parser<TInput, FitFile> FitFile;
+        public Parser<TInput, byte[]> Records;
+        public Parser<TInput, byte> DataHeader;
+        public Parser<TInput, byte> DefinitionHeader;
+        public Parser<TInput, FileHeader> Header;
         public Parser<TInput, byte> Sig;
     }
 

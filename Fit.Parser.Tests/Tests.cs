@@ -77,12 +77,15 @@ namespace Fit.Parser.Tests {
         [TestMethod]
         public void FitParser1() {
             FitParserFromStream parser = new FitParserFromStream();
-            var obj = parser.Header(File.OpenRead(@"c:\git\fit\Fit.Parser.Tests\sample.fit"));
-            Assert.IsNotNull(obj);
-            Header header = obj.Value;
+            var file = parser.FitFile(File.OpenRead(@"c:\git\fit\Fit.Parser.Tests\short.fit")).Value;
+            //var header = parser.Header(File.OpenRead(@"c:\git\fit\Fit.Parser.Tests\short.fit")).Value;
+            var header = file.FileHeader;
             Assert.AreEqual(header.Length, 12);
             Assert.AreEqual(header.ProtocolVersion, 0x10);
             Assert.AreEqual(header.ProfileVersion, 0x40);
+
+            var records = file.Records;
+            Assert.IsNotNull(records);
         }
     }
 }
